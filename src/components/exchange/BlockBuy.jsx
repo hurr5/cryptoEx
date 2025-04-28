@@ -180,24 +180,6 @@ const BlockBuy = ({
             }}
             sx={{ maxWidth: "150px", marginTop: "10px" }}
             onChange={handleInputChange} />
-
-          {/* <NumericFormat
-            className="exchange-order__amount"
-            customInput={TextField}
-            label={placeholderText}
-            thousandSeparator=" "
-            decimalSeparator="."
-
-            variant="standard"
-            slotProps={{
-              inputLabel: {
-                shrink: true,
-              }
-            }}
-            value={amount}
-            onChange={handleInputChange}
-            sx={{ maxWidth: "150px", marginTop: "10px" }}
-          /> */}
         </div>
       </div>
     </Grid>
