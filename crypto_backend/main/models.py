@@ -9,7 +9,7 @@ class PaymentDetails(models.Model):
         (CRYPTO, 'Crypto'),
     ]
 
-    currency_code = models.CharField(max_length=10)  # убираем уникальность, чтобы можно было иметь несколько записей с одним кодом
+    currency_code = models.CharField(max_length=10)
     type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     address = models.CharField(max_length=255)
 
@@ -18,6 +18,13 @@ class PaymentDetails(models.Model):
 
 
 class Order(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('paid', 'Paid'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
     from_currency = models.CharField(max_length=10)
     to_currency = models.CharField(max_length=10)
     amount = models.DecimalField(max_digits=20, decimal_places=8, default=0)
@@ -25,8 +32,9 @@ class Order(models.Model):
     total = models.DecimalField(max_digits=20, decimal_places=8, default=0)
     email = models.EmailField(max_length=255)
     payment_details = models.ForeignKey('PaymentDetails', on_delete=models.SET_NULL, null=True, blank=True)
-    status = models.CharField(max_length=50, default="pending")
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)
+    wallet_address = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
         return f"Order #{self.id} from {self.from_currency} to {self.to_currency}"

@@ -22,9 +22,7 @@ export default function Exchange() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [debugInfo, setDebugInfo] = useState(null); // Добавлено для отладки
-
-  
+  const [debugInfo, setDebugInfo] = useState(null);
 
   const handleFirstAmountChange = (amount, currency, selectedValue) => {
     setFirstAmount(amount);
@@ -47,7 +45,6 @@ export default function Exchange() {
   };
 
   const handleSubmitOrder = async () => {
-    // Валидация данных
     if (!email || !walletAddress || !firstCurrency || !secondCurrency || !firstAmount || !secondAmount) {
       setError("Please fill in all fields before proceeding.");
       return;
@@ -58,28 +55,28 @@ export default function Exchange() {
       setError("");
       setDebugInfo(null);
 
-      const currencyIds = {
-        "USD": 1,
-        "RUB": 2,
-        "EUR": 3,
-        "GEL": 4,
-        "KZT": 5,
-        "BYN": 6,
-        "BTC": 7,
-        "ETH": 8,
-        "USDT": 9,
-        "USDC": 10,
-        "TON": 11,
-      };
+      const paymentDetailsResponse = await fetch(`http://localhost:8000/api/payment-details/?currency_code=${firstCurrency}&type=${firstComponentType}`);
+      if (!paymentDetailsResponse.ok) {
+        throw new Error(`Failed to fetch payment details: ${paymentDetailsResponse.status}`);
+      }
+      
+      const paymentDetailsData = await paymentDetailsResponse.json();
+      
+      if (!paymentDetailsData || paymentDetailsData.length === 0) {
+        throw new Error(`Payment details for ${firstCurrency} are not available`);
+      }
+
+      const paymentDetails = paymentDetailsData[0];
 
       const orderData = {
         email,
+        wallet_address: walletAddress,
         from_currency: firstCurrency,
         to_currency: secondCurrency,
         amount: firstAmount,
-        rate: parseFloat((secondAmount / firstAmount).toFixed(8)), // Ограничиваем до 8 знаков
+        rate: parseFloat((secondAmount / firstAmount).toFixed(8)),
         total: secondAmount,
-        payment_details: currencyIds[firstCurrency],
+        payment_details: paymentDetails.id
       };
       
       console.log("Sending order data:", orderData);
@@ -93,43 +90,23 @@ export default function Exchange() {
       });
 
       console.log("Response status:", response.status);
-      console.log("Response status text:", response.statusText);
       
-      // Получаем тело ответа как текст для отладки
-      const responseText = await response.text();
-      console.log("Raw response:", responseText);
-      
-      let responseData;
-      try {
-        // Пробуем распарсить JSON только если есть что парсить
-        responseData = responseText ? JSON.parse(responseText) : {};
-      } catch (parseError) {
-        console.error("Failed to parse response as JSON:", parseError);
-        setDebugInfo({
-          status: response.status,
-          statusText: response.statusText,
-          rawResponse: responseText
-        });
-        throw new Error("Server response is not valid JSON");
-      }
-
       if (!response.ok) {
-        console.error('Error details:', responseData);
-        // Сохраняем подробную информацию об ошибке
-        setDebugInfo({
-          status: response.status,
-          statusText: response.statusText,
-          errorData: responseData
-        });
-        throw new Error(responseData.message || responseData.detail || 'Failed to create order');
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        throw new Error(errorText || "Failed to create order");
       }
-
-      const orderId = responseData.id;
-      console.log("Order created successfully with ID:", orderId);
-      navigate(`/order/${orderId}`);
+      
+      const responseData = await response.json();
+      console.log("Order created successfully with ID:", responseData.id);
+      navigate(`/order/${responseData.id}`);
     } catch (err) {
       console.error("Order submission error:", err);
       setError(err.message || "Unknown error occurred");
+      setDebugInfo({
+        error: err.toString(),
+        message: err.message
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -229,7 +206,6 @@ export default function Exchange() {
                 </div>
               )}
               
-              {/* Отображение отладочной информации */}
               {debugInfo && (
                 <div style={{ marginTop: '1rem', padding: '10px', background: '#f5f5f5', borderRadius: '4px' }}>
                   <h4>Debug Information:</h4>

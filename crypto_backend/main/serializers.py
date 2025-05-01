@@ -1,16 +1,20 @@
 from rest_framework import serializers
 from .models import Order, PaymentDetails
 
-class OrderSerializer(serializers.ModelSerializer):
-    payment_address = serializers.SerializerMethodField()
+class PaymentDetailsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PaymentDetails
+        fields = ['id', 'currency_code', 'type', 'address']
 
+
+class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
-        fields = '__all__' 
-
-    def get_payment_address(self, obj):
-        try:
-            payment = PaymentDetails.objects.get(currency_code=obj.from_currency)
-            return payment.address
-        except PaymentDetails.DoesNotExist:
-            return None
+        fields = ['id', 'from_currency', 'to_currency', 'amount', 'rate', 
+                  'total', 'email', 'payment_details', 'status', 'created_at', 'wallet_address']
+        
+    def create(self, validated_data):
+        """
+        Handle creating an order with wallet_address
+        """
+        return Order.objects.create(**validated_data)
