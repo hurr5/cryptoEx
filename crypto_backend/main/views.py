@@ -28,15 +28,26 @@ class PaymentDetailsViewSet(viewsets.ModelViewSet):
 class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
-    
+
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
         data = serializer.data
-        
+
         if instance.payment_details:
             data['payment_address'] = instance.payment_details.address
         else:
             data['payment_address'] = None
-            
+
         return Response(data)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Отмена заказа: меняет статус на 'canceled'."""
+        order = get_object_or_404(Order, pk=pk)
+        if order.status == 'canceled':
+            return Response({'detail': 'Order is already canceled.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        order.status = 'canceled'
+        order.save()
+        return Response({'detail': 'Order canceled successfully.'}, status=status.HTTP_200_OK)

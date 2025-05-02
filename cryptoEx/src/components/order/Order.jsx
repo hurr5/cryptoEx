@@ -2,7 +2,9 @@ import { Button, ButtonGroup, Container, Grid2 as Grid } from "@mui/material";
 import './order.sass';
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom"; 
 import SwapIcon from "../common/SwapIcon";
+
 
 const Order = () => {
   const { orderId } = useParams();
@@ -10,6 +12,27 @@ const Order = () => {
   const [currentDate, setCurrentDate] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const navigate = useNavigate();
+  const handleCancel = async () => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/orders/${orderId}/cancel/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to cancel order");
+      }
+
+      navigate('/');
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      alert("Failed to cancel order. Please try again later.");
+    }
+  };
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -152,7 +175,7 @@ const Order = () => {
         width: '500px',
         height: '60px'
       }}>
-        <Button color="error" sx={{ width: '50%', borderRadius: '30px' }}>
+        <Button color="error" sx={{ width: '50%', borderRadius: '30px' }} onClick={handleCancel}>
           Cancel
         </Button>
         <Button variant="contained" sx={{
