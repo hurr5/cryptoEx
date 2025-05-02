@@ -83,7 +83,7 @@ const Order = () => {
       <Grid container spacing={2}>
         <Grid item size={12} className="order__window order__window_info">
           <div className="order__date">
-            <h2>Order №{orderData.id}</h2>
+            <h2>Order №{orderData.client_order_id}</h2>
             <span>{currentDate}</span>
           </div>
           <div className="order__info">
