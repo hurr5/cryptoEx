@@ -4,7 +4,6 @@ import psycopg2
 import uuid
 from decimal import Decimal, ROUND_DOWN
 
-# Конфигурация бота и базы данных
 TOKEN = '7394017273:AAECE86i2vJPFemrVvd6rGgcYS83hHscRbY'
 bot = telebot.TeleBot(TOKEN)
 
@@ -14,8 +13,9 @@ DB_NAME = 'CryptoEx'
 DB_USER = 'postgres'
 DB_PASS = 'hujiyg67859D'
 
+TABLE_NAME = 'main_order'
+
 def get_db_connection():
-    """Устанавливаем соединение с базой данных PostgreSQL."""
     return psycopg2.connect(
         host=DB_HOST,
         port=DB_PORT,
@@ -24,54 +24,54 @@ def get_db_connection():
         password=DB_PASS
     )
 
-def generate_order_number():
-    """Генерируем уникальный номер ордера (8 символов)."""
-    return str(uuid.uuid4()).replace("-", "")[:8]
-
 def round_to_tenthousandths(value):
-    """Округляем значение до 4 знаков после запятой."""
     return Decimal(value).quantize(Decimal('0.0001'), rounding=ROUND_DOWN)
 
 def notify_website(order_id, status):
-    """
-    Заглушка для подключения к API сайта.
-    Здесь можно реализовать вызов внешнего API, например с использованием requests.
-    """
     print(f"[API STUB] Заказ {order_id} обновлён до статуса {status}")
 
 @bot.message_handler(commands=['start'])
 def start_handler(message):
-    bot.send_message(message.chat.id, "Добро пожаловать! Этот бот предназначен для подтверждения или отклонения оплаты заказа.")
+    bot.send_message(message.chat.id, "Добро пожаловать! Введите /order <id> или /order list.")
 
 @bot.message_handler(commands=['order'])
 def order_handler(message):
-    """
-    Обрабатываем команду /order <order_id>.
-    Получаем информацию о заказе из базы данных и выводим её с кнопками для подтверждения/отклонения.
-    """
     parts = message.text.split()
-    if len(parts) != 2:
-        bot.send_message(message.chat.id, "Пожалуйста, используйте команду: /order <order_id>")
+
+    if len(parts) < 2:
+        bot.send_message(message.chat.id, "Используйте: /order <id> или /order list")
         return
 
-    order_id = parts[1]
+    arg = parts[1]
+
+    if arg == 'list':
+        send_pending_orders(message.chat.id)
+    elif arg.isdigit():
+        send_order_details(message.chat.id, arg)
+    else:
+        bot.send_message(message.chat.id, "Неверная команда. Используйте: /order <id> или /order list")
+
+def send_order_details(chat_id, order_id):
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute(
-            "SELECT id, from_currency, to_currency, amount, rate, total, email, payment_details, status, created_at "
-            "FROM orders WHERE id = %s", (order_id,)
+            f"""
+            SELECT o.id, o.from_currency, o.to_currency, o.amount, o.rate, o.total,
+                o.email, p.address, o.status, o.created_at
+            FROM {TABLE_NAME} o
+            LEFT JOIN main_paymentdetails p ON o.payment_details_id = p.id
+            WHERE o.id = %s
+            """,
+            (order_id,)
         )
         order = cur.fetchone()
-        if order is None:
-            bot.send_message(message.chat.id, "Заказ не найден.")
+        if not order:
+            bot.send_message(chat_id, "Заказ не найден.")
             return
 
-        # Округляем сумму до 4 знаков
         total = round_to_tenthousandths(order[5])
-
-        # Формируем сообщение с информацией о заказе и читаемым форматом даты
         order_details = (
             f"Заказ #{order[0]}\n"
             f"Отдаёте: {order[1]}\n"
@@ -85,34 +85,55 @@ def order_handler(message):
             f"Создан: {order[9].strftime('%d-%m-%Y %H:%M:%S')}\n"
         )
 
-        # Создаем инлайн-клавиатуру с кнопками
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Подтвердить оплату", callback_data=f"confirm_{order_id}"))
         markup.add(types.InlineKeyboardButton("Отклонить оплату", callback_data=f"cancel_{order_id}"))
 
-        bot.send_message(message.chat.id, order_details, reply_markup=markup)
+        bot.send_message(chat_id, order_details, reply_markup=markup)
         cur.close()
     except Exception as e:
-        bot.send_message(message.chat.id, f"Ошибка при получении заказа: {e}")
+        bot.send_message(chat_id, f"Ошибка при получении заказа: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+def send_pending_orders(chat_id):
+    conn = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            f"SELECT id, from_currency, to_currency, amount, total, email, status "
+            f"FROM {TABLE_NAME} WHERE status = 'pending'"
+        )
+        rows = cur.fetchall()
+        if not rows:
+            bot.send_message(chat_id, "Нет заказов со статусом 'pending'.")
+            return
+
+        msg = "Список заказов со статусом 'pending':\n\n"
+        for row in rows:
+            msg += (
+                f"Заказ #{row[0]} | {row[1]} → {row[2]}\n"
+                f"Сумма: {row[3]} | Итого: {round_to_tenthousandths(row[4])}\n"
+                f"Email: {row[5]}\n"
+                f"Статус: {row[6]}\n\n"
+            )
+        bot.send_message(chat_id, msg)
+        cur.close()
+    except Exception as e:
+        bot.send_message(chat_id, f"Ошибка при получении заказов: {e}")
     finally:
         if conn:
             conn.close()
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
-    """
-    Обрабатываем нажатия кнопок.
-    Если пользователь подтвердил оплату — обновляем статус на "fulfilled",
-    если отклонил — на "canceled".
-    
-    После выбора, инлайн-клавиатура удаляется и сообщение обновляется стандартным текстом.
-    """
     data = call.data
     if data.startswith("confirm_"):
         order_id = data.split("_")[1]
         update_order_status(order_id, "fulfilled")
         notify_website(order_id, "fulfilled")
-        # Удаляем кнопки (сбрасываем клавиатуру) и обновляем текст сообщения
         bot.edit_message_reply_markup(chat_id=call.message.chat.id, message_id=call.message.message_id, reply_markup=None)
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                               text=f"Заказ {order_id} подтверждён. Оплата принята.")
@@ -127,12 +148,11 @@ def callback_handler(call):
         bot.answer_callback_query(call.id, "Оплата отклонена!")
 
 def update_order_status(order_id, new_status):
-    """Обновляем статус заказа в базе данных."""
     conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("UPDATE orders SET status = %s WHERE id = %s", (new_status, order_id))
+        cur.execute(f"UPDATE {TABLE_NAME} SET status = %s WHERE id = %s", (new_status, order_id))
         conn.commit()
         cur.close()
     except Exception as e:
