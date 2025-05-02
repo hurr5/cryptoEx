@@ -3,9 +3,9 @@ from telebot import types
 import psycopg2
 import uuid
 from decimal import Decimal, ROUND_DOWN
+from django.conf import settings
 
-TOKEN = '7394017273:AAECE86i2vJPFemrVvd6rGgcYS83hHscRbY'
-bot = telebot.TeleBot(TOKEN)
+bot = telebot.TeleBot(settings.TELEGRAM_BOT_TOKEN)
 
 DB_HOST = 'localhost'
 DB_PORT = '5432'
