@@ -178,14 +178,13 @@ const Order = () => {
         <Button color="error" sx={{ width: '50%', borderRadius: '30px' }} onClick={handleCancel}>
           Cancel
         </Button>
-        <Button variant="contained" sx={{
-          bgcolor: '#21ba72b3',
-          color: '#fff',
-          width: '50%',
-          borderRadius: '30px'
-        }}>
-          I paid order
-        </Button>
+        <Button
+        variant="contained"
+        sx={{ bgcolor: '#21ba72b3', color: '#fff', width: '50%', borderRadius: '30px' }}
+        onClick={() => navigate(`/order-confirmed/${orderId}`)}
+      >
+        I paid order
+      </Button>
       </ButtonGroup>
     </Container>
   );

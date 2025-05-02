@@ -13,6 +13,7 @@ import AmlKyc from './pages/amlKyc/AmlKyc'
 import Privacy from './pages/privacy/Privacy'
 import AboutUs from './pages/aboutUs/AboutUs'
 import Cookies from './components/layout/cookies/Cookies'
+import OrderConfirmed from './components/order-confirmed/OrderConfirmed';
 
 function App() {
 
@@ -43,6 +44,7 @@ function App() {
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/aboutUs" element={<AboutUs />} />
                 <Route path="*" element={<NoMatch />} />
+                <Route path="/order-confirmed/:orderId" element={<OrderConfirmed />} />
               </Routes>
               <Footer />
             </main>
