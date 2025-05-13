@@ -17,6 +17,7 @@ dist-ssr
 .idea
 .DS_Store
 crypto_backend/.env
+venv/
 *.suo
 *.ntvs*
 *.njsproj
