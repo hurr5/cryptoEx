@@ -20,7 +20,7 @@ const BlockBuy = ({
   const [dataArray, setDataArray] = useState([]);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState(null);
-  const [showCurrencies, setShowCurrencies] = useState(null); // This is likely for controlling the visibility of the currency list
+  const [showCurrencies, setShowCurrencies] = useState(null);
 
   const isUserTypingRef = useRef(false);
   const calculationTimerRef = useRef(null);
@@ -48,22 +48,14 @@ const BlockBuy = ({
       }
       const data = await res.json();
       setDataArray(data);
-      // --- REMOVED THIS BLOCK ---
-      // if (!selectedValue && data.length > 0) {
-      //   const firstCurrencyName = data[0].name;
-      //   setSelectedValue(firstCurrencyName);
-      // }
-      // --- END REMOVED BLOCK ---
     } catch (err) {
       console.error(err);
     }
-  }, []); // Removed selectedValue from dependency array, as we no longer check it here
+  }, []);
 
   useEffect(() => {
     if (fetchURL) {
       const initialTypeToLoad = currency === 'fiat' ? 'fiatCurrencies' : (currency === 'crypto' ? 'cryptoCurrencies' : 'fiatCurrencies');
-      // Only fetch currencies if a type is set.
-      // If currency is null initially, this won't fetch anything until a type is chosen.
       if (currency) {
         getCurrency(fetchURL, initialTypeToLoad);
       }
@@ -76,8 +68,8 @@ const BlockBuy = ({
       if (currency !== ownExpectedType) {
         setCurrency(ownExpectedType);
         const endpoint = ownExpectedType === 'fiat' ? 'fiatCurrencies' : 'cryptoCurrencies';
-        setSelectedValue(null); // Ensure no currency is pre-selected when type changes
-        setDataArray([]); // Clear previous currency list
+        setSelectedValue(null);
+        setDataArray([]);
         getCurrency(fetchURL, endpoint);
         setShowCurrencies(true);
       }
@@ -115,11 +107,10 @@ const BlockBuy = ({
       return;
     }
 
-    // Only perform calculations if all necessary values are present
     if (
       otherComponentAmount === null ||
       otherComponentCurrency === null ||
-      selectedValue === null || // This is key: only calculate if OUR currency is selected
+      selectedValue === null ||
       currency === null ||
       linkedComponent === null ||
       isNaN(otherComponentAmount)
@@ -145,7 +136,7 @@ const BlockBuy = ({
         return;
       }
       amountInUSD = Number(otherComponentAmount) * otherBinancePrice;
-    } else { // otherCurrencyType === 'fiat'
+    } else {
       if (otherCbrPrice === null || otherCbrLoading || otherCbrError) {
         if (otherCbrError) console.error("Error getting other CBR price:", otherCbrError);
         return;
@@ -167,7 +158,7 @@ const BlockBuy = ({
         return;
       }
       finalAmount = amountInUSD / ownBinancePrice;
-    } else { // currency === 'fiat'
+    } else {
       if (ownCbrPrice === null || ownCbrLoading || ownCbrError) {
         if (ownCbrError) console.error("Error getting own CBR price:", ownCbrError);
         return;
@@ -188,7 +179,7 @@ const BlockBuy = ({
     otherComponentAmount,
     otherComponentCurrency,
     otherCurrencyType,
-    selectedValue, // Crucial for re-running when a currency is finally selected
+    selectedValue,
     currency,
     ownBinancePrice,
     ownCbrPrice,
@@ -202,7 +193,7 @@ const BlockBuy = ({
   const handleCurrencyTypeChange = (type) => {
     if (currency === type) return;
 
-    setSelectedValue(null); // Explicitly clear selected value
+    setSelectedValue(null);
     setDataArray([]);
     setAmount('');
     isUserTypingRef.current = false;
@@ -210,7 +201,7 @@ const BlockBuy = ({
     setCurrency(type);
     const endpoint = type === 'fiat' ? 'fiatCurrencies' : 'cryptoCurrencies';
     getCurrency(fetchURL, endpoint);
-    setShowCurrencies(true); // Show the list after type is chosen
+    setShowCurrencies(true);
 
     if (onCurrencyTypeChange) {
       onCurrencyTypeChange(type);
@@ -221,7 +212,7 @@ const BlockBuy = ({
     `1 USD = ${ownCbrPrice.toFixed(2)} ${selectedValue}` :
     selectedValue && currency === 'crypto' && ownBinancePrice ?
       `1 ${selectedValue} = ${ownBinancePrice.toFixed(4)} USD` :
-      'Выберите валюту'; // Default placeholder if no currency selected
+      'Выберите валюту';
 
   const currenciesWithKeys = dataArray.map(value => ({ ...value, id: value.name }));
 
@@ -242,7 +233,6 @@ const BlockBuy = ({
       </div>
       <div className="exchange-order__currency" style={{ margin: '20px 0' }}>
         <div className="exchange-order__crypto">
-          {/* Render currency list only if a type (fiat/crypto) is selected */}
           {currency && (<motion.div
             className={showCurrencies ? "exchange-order__list exchange-order__list_active" : "exchange-order__list"}
             animate={{ height: showCurrencies ? "auto" : 0, opacity: showCurrencies ? 1 : 0, overflow: 'hidden' }}
