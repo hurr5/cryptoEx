@@ -49,3 +49,13 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order #{self.id} from {self.from_currency} to {self.to_currency}"
+    
+    
+class Review(models.Model):
+    username = models.CharField(max_length=100)
+    text = models.TextField(max_length=200)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='reviews')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Review by {self.username} on Order {self.order.client_order_id}"

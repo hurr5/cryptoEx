@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
 import { Container, Modal, Box, Button } from "@mui/material";
@@ -6,52 +7,66 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faArrowRight, faArrowLeft } from '@fortawesome/free-solid-svg-icons'
 import "swiper/css";
 import "swiper/css/navigation";
-import "./reviews.sass"
+import "./reviews.sass";
 
 const Reviews = () => {
-  const [reviews, setReviews] = useState([
-    {
-      username: "Ivan Ivanov",
-      text: "I exchanged USDT to RUB, the process was smooth and fast. The operator confirmed the transaction quickly. Highly recommend!",
-      orderId: "#123456"
-    },
-    {
-      username: "Petr Petrov",
-      text: "Excellent service! I purchased USDT at a great rate. The transaction was completed in no time. Will definitely use again.",
-      orderId: "#654321"
-    },
-    {
-      username: "Sidor Sidorov",
-      text: "Amazing experience! I bought BTC, and everything went perfectly. Great team!",
-      orderId: "#789012"
-    },
-    {
-      username: "Petr Petrov",
-      text: "Excellent service! I purchased USDT at a great rate. The transaction was completed in no time. Will definitely use again.",
-      orderId: "#654321"
-    },
-  ]);
+  const [reviews, setReviews] = useState([]);
+  const [open, setOpen] = useState(false); // Добавлено состояние для модального окна
+  const [form, setForm] = useState({ // Добавлено состояние для формы
+    username: "",
+    text: "",
+    orderId: ""
+  });
 
-  const [form, setForm] = useState({ username: "", text: "", orderId: "" });
-  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    axios.get("http://localhost:8000/api/reviews/")
+      .then(response => {
+        if (response.data && Array.isArray(response.data.results)) {
+          setReviews(response.data.results);
+        } else if (Array.isArray(response.data)) {
+          setReviews(response.data);
+        } else {
+          setReviews([]);
+        }
+      })
+      .catch(error => {
+        console.error("Failed to fetch reviews:", error);
+        setReviews([]);
+      });
+  }, []);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (form.text.length > 200 || !form.username || !form.orderId) return;
+
+    const payload = {
+      username: form.username,
+      text: form.text,
+      order_id: form.orderId.replace("#", ""),
+    };
+
+    axios.post("http://localhost:8000/api/reviews/", payload)
+      .then((res) => {
+        setReviews([res.data, ...reviews]);
+        setForm({ username: "", text: "", orderId: "" });
+        setOpen(false);
+      })
+      .catch((err) => {
+        console.error("Failed to post review:", err);
+        alert("Ошибка при отправке отзыва. Убедитесь, что Order ID существует.");
+      });
+  };
 
   return (
     <Container>
       <div className="reviews">
         <h2 className="reviews__title">What people say about us:</h2>
-        <Button variant="contained" onClick={() => setOpen(true)} sx={{ display: "block", margin: "0 auto" }}>Leave a Review</Button>
+        <Button variant="contained" onClick={() => setOpen(true)} sx={{ display: "block", margin: "0 auto" }}>
+          Leave a Review
+        </Button>
         <Modal open={open} onClose={() => setOpen(false)}>
           <Box className="reviews__modal">
-            <form
-              className="reviews__form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (form.text.length > 200 || !form.username || !form.orderId) return;
-                setReviews([{ ...form }, ...reviews]);
-                setForm({ username: "", text: "", orderId: "" });
-                setOpen(false);
-              }}
-            >
+            <form className="reviews__form" onSubmit={handleSubmit}>
               <input
                 type="text"
                 placeholder="Your name"
@@ -63,7 +78,11 @@ const Reviews = () => {
                 type="text"
                 placeholder="Order ID (e.g. #123456)"
                 value={form.orderId}
-                onChange={(e) => setForm({ ...form, orderId: e.target.value })}
+                onChange={(e) => {
+                  let value = e.target.value;
+                  if (!value.startsWith("#") && value.length > 0) value = "#" + value; // Исправлено условие
+                  setForm({ ...form, orderId: value });
+                }}
                 required
               />
               <textarea
@@ -111,7 +130,11 @@ const Reviews = () => {
               <SwiperSlide key={index}>
                 <div className="reviews__slide">
                   <div className="reviews__slide-user">
-                    <img src="https://www.w3schools.com/howto/img_avatar.png" alt="user" className="reviews__slide-img" />
+                    <img
+                      src="https://www.w3schools.com/howto/img_avatar.png"
+                      alt="user"
+                      className="reviews__slide-img"
+                    />
                     <p className="reviews__slide-name">{review.username}</p>
                   </div>
                   <p className="reviews__slide-text">{review.text}</p>
@@ -125,7 +148,7 @@ const Reviews = () => {
         </div>
       </div>
     </Container>
-  )
-}
+  );
+};
 
-export default Reviews
+export default Reviews;

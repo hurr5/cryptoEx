@@ -1,7 +1,7 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, generics
 from rest_framework.response import Response
-from .models import Order, PaymentDetails
-from .serializers import OrderSerializer, PaymentDetailsSerializer
+from .models import Order, PaymentDetails, Review
+from .serializers import OrderSerializer, PaymentDetailsSerializer, ReviewSerializer
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
 
@@ -51,3 +51,19 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.status = 'canceled'
         order.save()
         return Response({'detail': 'Order canceled successfully.'}, status=status.HTTP_200_OK)
+
+class ReviewListCreateView(generics.ListCreateAPIView):
+    queryset = Review.objects.all().order_by('-created_at')
+    serializer_class = ReviewSerializer
+
+    def create(self, request, *args, **kwargs):
+        order_id = request.data.get('order_id')
+        try:
+            order = Order.objects.get(client_order_id=order_id)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(order=order)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

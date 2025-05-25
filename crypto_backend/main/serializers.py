@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, PaymentDetails
+from .models import Order, PaymentDetails, Review
 
 class PaymentDetailsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -18,3 +18,11 @@ class OrderSerializer(serializers.ModelSerializer):
         Handle creating an order with wallet_address
         """
         return Order.objects.create(**validated_data)
+    
+    
+class ReviewSerializer(serializers.ModelSerializer):
+    order_id = serializers.CharField(source='order.client_order_id')
+
+    class Meta:
+        model = Review
+        fields = ['id', 'username', 'text', 'order_id', 'created_at']
