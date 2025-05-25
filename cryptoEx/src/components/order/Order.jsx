@@ -2,7 +2,7 @@ import { Button, ButtonGroup, Container, Grid2 as Grid } from "@mui/material";
 import './order.sass';
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
 import SwapIcon from "../common/SwapIcon";
 
 
@@ -40,17 +40,17 @@ const Order = () => {
         console.log("Starting order loading with ID:", orderId);
         setIsLoading(true);
         setError(null);
-        
+
         const response = await fetch(`http://localhost:8000/api/orders/${orderId}/`);
         console.log("Received response, status:", response.status);
-        
+
         if (!response.ok) {
           throw new Error(`Error loading order: ${response.status}`);
         }
-        
+
         const data = await response.json();
         console.log("Retrieved data:", data);
-        
+
         setOrderData(data);
       } catch (error) {
         console.error("Request error:", error);
@@ -116,7 +116,7 @@ const Order = () => {
           </div>
         </Grid>
 
-        <Grid item size={12} className="order__window" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Grid item size={12} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5rem', margin: '2rem 0' }}>
           <div className="order__amount" style={{ textAlign: 'center' }}>
             <div className="order__currency">{orderData.from_currency}</div>
             <span className="order__total">{orderData.amount}</span>
@@ -179,12 +179,12 @@ const Order = () => {
           Cancel
         </Button>
         <Button
-        variant="contained"
-        sx={{ bgcolor: '#21ba72b3', color: '#fff', width: '50%', borderRadius: '30px' }}
-        onClick={() => navigate(`/order-confirmed/${orderId}`)}
-      >
-        I paid order
-      </Button>
+          variant="contained"
+          sx={{ bgcolor: '#21ba72b3', color: '#fff', width: '50%', borderRadius: '30px' }}
+          onClick={() => navigate(`/order-confirmed/${orderId}`)}
+        >
+          I paid order
+        </Button>
       </ButtonGroup>
     </Container>
   );

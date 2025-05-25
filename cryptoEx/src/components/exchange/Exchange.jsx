@@ -1,5 +1,5 @@
 import { Grid2 as Grid, Checkbox, FormControlLabel, TextField, Button } from "@mui/material";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import SwapIcon from "../common/SwapIcon";
 import BlockBuy from "./BlockBuy";
@@ -10,12 +10,12 @@ import './exchange.sass';
 export default function Exchange() {
   const navigate = useNavigate();
 
-  const [firstComponentType, setFirstComponentType] = useState(null);
-  const [secondComponentType, setSecondComponentType] = useState(null);
+  const [firstComponentType, setFirstComponentType] = useState('fiat'); // BlockBuy
+  const [secondComponentType, setSecondComponentType] = useState('crypto'); // BlockSell
   const [firstAmount, setFirstAmount] = useState(0);
   const [secondAmount, setSecondAmount] = useState(0);
-  const [firstCurrency, setFirstCurrency] = useState(null);
-  const [secondCurrency, setSecondCurrency] = useState(null);
+  const [firstCurrency, setFirstCurrency] = useState('USD');
+  const [secondCurrency, setSecondCurrency] = useState('BTC');
 
   const [email, setEmail] = useState("");
   const [walletAddress, setWalletAddress] = useState("");
@@ -25,12 +25,13 @@ export default function Exchange() {
   const [debugInfo, setDebugInfo] = useState(null);
 
   const handleFirstAmountChange = (amount, currency, selectedValue) => {
-    setFirstAmount(amount);
+    setFirstAmount(Number(amount));
     setFirstCurrency(selectedValue);
   };
 
   const handleSecondAmountChange = (amount, currency, selectedValue) => {
-    setSecondAmount(amount);
+    console.log("Second component changed:", { amount, currency, selectedValue });
+    setSecondAmount(Number(amount));
     setSecondCurrency(selectedValue);
   };
 
@@ -43,6 +44,48 @@ export default function Exchange() {
     setSecondComponentType(type);
     setFirstComponentType(type === 'fiat' ? 'crypto' : 'fiat');
   };
+
+  const handleSwapAction = () => {
+    const temp = firstComponentType;
+    handleFirstComponentChange(secondComponentType);
+    handleSecondComponentChange(temp);
+  };
+
+  useEffect(() => {
+    console.log(`Currency changed: firstCurrency=${firstCurrency}, secondCurrency=${secondCurrency}`);
+  }, [firstCurrency, secondCurrency]);
+
+
+
+  useEffect(() => {
+    const initializeComponents = async () => {
+      try {
+        const defaultFirstAmount = 100;
+
+        setFirstComponentType('crypto');
+        setSecondComponentType('fiat');
+
+        setFirstCurrency('BTC');
+        setSecondCurrency('USD');
+
+        setFirstAmount(defaultFirstAmount);
+
+        setTimeout(() => {
+          setFirstComponentType('fiat');
+          setSecondComponentType('crypto');
+          setFirstCurrency('USD');
+          setSecondCurrency('BTC');
+
+          setFirstAmount(defaultFirstAmount);
+          setFirstAmount(1);
+        }, 300);
+      } catch (error) {
+        console.error("Failed to initialize components:", error);
+      }
+    };
+
+    initializeComponents();
+  }, []);
 
   const handleSubmitOrder = async () => {
     if (!email || !walletAddress || !firstCurrency || !secondCurrency || !firstAmount || !secondAmount) {
@@ -59,9 +102,9 @@ export default function Exchange() {
       if (!paymentDetailsResponse.ok) {
         throw new Error(`Failed to fetch payment details: ${paymentDetailsResponse.status}`);
       }
-      
+
       const paymentDetailsData = await paymentDetailsResponse.json();
-      
+
       if (!paymentDetailsData || paymentDetailsData.length === 0) {
         throw new Error(`Payment details for ${firstCurrency} are not available`);
       }
@@ -78,7 +121,7 @@ export default function Exchange() {
         total: secondAmount,
         payment_details: paymentDetails.id
       };
-      
+
       console.log("Sending order data:", orderData);
 
       const response = await fetch('http://localhost:8000/api/orders/', {
@@ -90,13 +133,13 @@ export default function Exchange() {
       });
 
       console.log("Response status:", response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Error response:", errorText);
         throw new Error(errorText || "Failed to create order");
       }
-      
+
       const responseData = await response.json();
       console.log("Order created successfully with ID:", responseData.id);
       navigate(`/order/${responseData.id}`);
@@ -115,13 +158,13 @@ export default function Exchange() {
   return (
     <Grid className="exchange" container>
 
-      <BlockSell
+      <BlockBuy
         fetchURL='http://localhost:3001'
         title="You receive"
         linkedComponent={firstComponentType}
         onCurrencyTypeChange={handleSecondComponentChange}
         onAmountChange={handleSecondAmountChange}
-        otherComponentAmount={firstAmount}
+        otherComponentAmount={Number(firstAmount)}
         otherComponentCurrency={firstCurrency}
         isFirstComponent={false}
       />
@@ -129,9 +172,7 @@ export default function Exchange() {
       <SwapIcon
         isClickable={true}
         onClick={() => {
-          const temp = firstComponentType;
-          handleFirstComponentChange(secondComponentType);
-          handleSecondComponentChange(temp);
+          handleSwapAction();
         }}
       />
 
@@ -141,12 +182,12 @@ export default function Exchange() {
         linkedComponent={secondComponentType}
         onCurrencyTypeChange={handleFirstComponentChange}
         onAmountChange={handleFirstAmountChange}
-        otherComponentAmount={secondAmount}
+        otherComponentAmount={Number(secondAmount)}
         otherComponentCurrency={secondCurrency}
         isFirstComponent={true}
       />
 
-      <Grid className="exchange-final" lg={12} xs={12}>
+      <Grid className="exchange-final" size={{ lg: 7, xs: 12 }}>
         <h2>Confirm order</h2>
 
         <div className="exchange-final__container">
@@ -188,14 +229,30 @@ export default function Exchange() {
             <div className="exchange-final__currencies">
               <div>
                 <span>You give:</span>
-                <div className="exchange-final__result">
+                <div className="exchange-final__result" style={{ display: 'flex', alignItems: 'center' }}>
+                  {firstCurrency && (
+                    <img
+                      src={`/currencies/${firstCurrency.toUpperCase()}.svg`}
+                      alt={firstCurrency}
+                      style={{ width: '24px', height: '24px', marginRight: '8px' }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  )}
                   <span>{firstCurrency || "Not selected"}</span>
                 </div>
               </div>
 
               <div>
                 <span>You receive:</span>
-                <div className="exchange-final__result">
+                <div className="exchange-final__result" style={{ display: 'flex', alignItems: 'center' }}>
+                  {secondCurrency && (
+                    <img
+                      src={`/currencies/${secondCurrency.toUpperCase()}.svg`}
+                      alt={secondCurrency}
+                      style={{ width: '24px', height: '24px', marginRight: '8px' }}
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                  )}
                   <span>{secondCurrency || "Not selected"}</span>
                 </div>
               </div>
@@ -205,7 +262,7 @@ export default function Exchange() {
                   {error}
                 </div>
               )}
-              
+
               {debugInfo && (
                 <div style={{ marginTop: '1rem', padding: '10px', background: '#f5f5f5', borderRadius: '4px' }}>
                   <h4>Debug Information:</h4>
@@ -232,6 +289,6 @@ export default function Exchange() {
         </div>
       </Grid>
 
-    </Grid>
+    </Grid >
   );
 }

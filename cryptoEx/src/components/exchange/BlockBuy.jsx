@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Grid2 as Grid, TextField } from "@mui/material";
-import { v4 as uuidv4 } from "uuid";
 import { useBinance } from "../../hooks/binance.hook";
 import { useCbr } from "../../hooks/cbr.hook";
 import PropTypes from 'prop-types';
 import { useSelector } from 'react-redux';
-import { NumericFormat } from 'react-number-format';
 import './orderCurrency.sass';
 
 const BlockBuy = ({
@@ -25,76 +23,167 @@ const BlockBuy = ({
   const [currency, setCurrency] = useState(null);
   const [showCurrencies, setShowCurrencies] = useState(null);
 
-  const { price: binancePrice } = useBinance(
-    currency === 'crypto' ? selectedValue : null,
-    currency === 'fiat' ? selectedValue : selectedFiatCurrency
+  const { price: ownBinancePrice, loading: ownBinanceLoading, error: ownBinanceError } = useBinance(
+    currency === 'crypto' ? selectedValue : null
   );
-
-  const { price: cbrPrice } = useCbr(
+  const { price: ownCbrPrice, loading: ownCbrLoading, error: ownCbrError } = useCbr(
     currency === 'fiat' ? selectedValue : null
   );
 
-  const getCurrency = async (url, currencyType) => {
+  const otherCurrencyType = linkedComponent;
+  const { price: otherBinancePrice, loading: otherBinanceLoading, error: otherBinanceError } = useBinance(
+    otherCurrencyType === 'crypto' ? otherComponentCurrency : null
+  );
+  const { price: otherCbrPrice, loading: otherCbrLoading, error: otherCbrError } = useCbr(
+    otherCurrencyType === 'fiat' ? otherComponentCurrency : null
+  );
+
+  const getCurrency = async (url, currencyTypeToFetch) => {
     try {
-      const res = await fetch(`${url}/${currencyType}`, { method: "GET" });
+      const res = await fetch(`${url}/${currencyTypeToFetch}`, { method: "GET" });
       if (!res.ok) {
-        throw new Error(`Could not fetch ${url}, status: ${res.status}`);
+        throw new Error(`Could not fetch ${url}/${currencyTypeToFetch}, status: ${res.status}`);
       }
       const data = await res.json();
       setDataArray(data);
+      if (!selectedValue && data.length > 0) {
+        const firstCurrencyName = data[0].name;
+        setSelectedValue(firstCurrencyName);
+        if (onAmountChange) {
+          const currentAmount = parseFloat(amount) || 0;
+          onAmountChange(currentAmount, currency, firstCurrencyName);
+        }
+      }
     } catch (err) {
       console.error(err);
     }
-  }
+  };
 
   useEffect(() => {
     if (fetchURL) {
-      getCurrency(fetchURL, 'fiatCurrencies');
+      const initialTypeToLoad = currency === 'fiat' ? 'fiatCurrencies' : (currency === 'crypto' ? 'cryptoCurrencies' : 'fiatCurrencies');
+      getCurrency(fetchURL, initialTypeToLoad);
     }
   }, [fetchURL]);
 
   useEffect(() => {
-    if (linkedComponent) {
-      const oppositeType = linkedComponent === 'fiat' ? 'crypto' : 'fiat';
-
-      if (currency !== oppositeType) {
-        setCurrency(oppositeType);
-        const endpoint = oppositeType === 'fiat' ? 'fiatCurrencies' : 'cryptoCurrencies';
+    if (linkedComponent && fetchURL) {
+      const ownExpectedType = linkedComponent === 'fiat' ? 'crypto' : 'fiat';
+      if (currency !== ownExpectedType) {
+        setCurrency(ownExpectedType);
+        const endpoint = ownExpectedType === 'fiat' ? 'fiatCurrencies' : 'cryptoCurrencies';
+        setSelectedValue(null);
+        setDataArray([]);
         getCurrency(fetchURL, endpoint);
         setShowCurrencies(true);
       }
     }
-  }, [linkedComponent, fetchURL, currency]);
+  }, [linkedComponent, fetchURL]);
 
-  const handleCryptoClick = (currency) => {
-    setSelectedValue(currency);
+  useEffect(() => {
+    if (selectedValue && currency && onAmountChange) {
+      const currentAmount = parseFloat(amount) || 0;
+      onAmountChange(currentAmount, currency, selectedValue);
+    }
+  }, [selectedValue]);
+
+
+  const handleCryptoClick = (currencyName) => {
+    setSelectedValue(currencyName);
+    if (onAmountChange) {
+      const currentAmount = parseFloat(amount) || 0;
+      onAmountChange(currentAmount, currency, currencyName);
+    }
   };
 
   const handleInputChange = (e) => {
-    const newAmount = parseFloat(e.target.value);
-    setAmount(newAmount);
-    if (onAmountChange) {
-      onAmountChange(newAmount, currency, selectedValue);
+    const newAmountStr = e.target.value;
+    setAmount(newAmountStr);
+    const newAmountNum = parseFloat(newAmountStr);
+    if (onAmountChange && !isNaN(newAmountNum)) {
+      onAmountChange(newAmountNum, currency, selectedValue);
+    } else if (onAmountChange && newAmountStr === "") {
+      onAmountChange(0, currency, selectedValue);
     }
-  }
+  };
 
   useEffect(() => {
-    if (otherComponentAmount && selectedValue && binancePrice && cbrPrice) {
-      if (currency === 'fiat') {
-        const totalInUsd = otherComponentAmount * binancePrice;
-        const converted = totalInUsd * cbrPrice;
-        setAmount(converted);
-      } else {
-        const totalInFiat = otherComponentAmount / cbrPrice;
-        const converted = totalInFiat / binancePrice;
-        setAmount(converted);
-      }
+    if (
+      otherComponentAmount === null ||
+      otherComponentCurrency === null ||
+      selectedValue === null ||
+      currency === null ||
+      linkedComponent === null
+    ) {
+      setAmount('');
+      return;
     }
-  }, [otherComponentAmount, selectedValue, binancePrice, cbrPrice, currency]);
+
+    if (Number(otherComponentAmount) === 0) {
+      setAmount('0');
+      return;
+    }
+
+
+    let amountInUSD;
+
+    if (otherCurrencyType === 'crypto') {
+      if (otherBinancePrice === null || otherBinanceLoading) return;
+      if (otherBinanceError) { console.error("Error getting other binance price:", otherBinanceError); return; }
+      amountInUSD = Number(otherComponentAmount) * otherBinancePrice;
+    } else {
+      if (otherCbrPrice === null || otherCbrLoading) return;
+      if (otherCbrError) { console.error("Error getting other CBR price:", otherCbrError); return; }
+      amountInUSD = Number(otherComponentAmount) / otherCbrPrice;
+    }
+
+    if (isNaN(amountInUSD)) {
+      setAmount('');
+      return;
+    }
+
+    let finalAmount;
+    if (currency === 'crypto') {
+      if (ownBinancePrice === null || ownBinanceLoading) return;
+      if (ownBinanceError) { console.error("Error getting own binance price:", ownBinanceError); return; }
+      finalAmount = amountInUSD / ownBinancePrice;
+    } else {
+      if (ownCbrPrice === null || ownCbrLoading) return;
+      if (ownCbrError) { console.error("Error getting own CBR price:", ownCbrError); return; }
+      finalAmount = amountInUSD * ownCbrPrice;
+    }
+
+    if (!isNaN(finalAmount)) {
+      const roundedAmount = parseFloat(finalAmount.toFixed(currency === 'crypto' ? 8 : 2));
+      setAmount(String(roundedAmount));
+    } else {
+      setAmount('');
+    }
+
+  }, [
+    otherComponentAmount,
+    otherComponentCurrency,
+    otherCurrencyType,
+    selectedValue,
+    currency,
+    ownBinancePrice,
+    ownCbrPrice,
+    otherBinancePrice,
+    otherCbrPrice,
+    ownBinanceLoading, ownCbrLoading, otherBinanceLoading, otherCbrLoading,
+    ownBinanceError, ownCbrError, otherBinanceError, otherCbrError
+  ]);
 
   const handleCurrencyTypeChange = (type) => {
+    if (currency === type) return;
+
+    setSelectedValue(null);
+    setDataArray([]);
+    setAmount('');
+
     setCurrency(type);
-    getCurrency(fetchURL, type === 'fiat' ? 'fiatCurrencies' : 'cryptoCurrencies');
+    const endpoint = type === 'fiat' ? 'fiatCurrencies' : 'cryptoCurrencies';
+    getCurrency(fetchURL, endpoint);
     setShowCurrencies(true);
 
     if (onCurrencyTypeChange) {
@@ -102,11 +191,12 @@ const BlockBuy = ({
     }
   };
 
-  const placeholderText = currency === 'fiat' && cbrPrice ?
-    `1 USD = ${cbrPrice.toFixed(2)} ${selectedValue}` :
-    binancePrice ?
-      `1 ${selectedValue} = ${binancePrice.toFixed(4)} USD` :
-      'Select currency first';
+  const placeholderText = currency === 'fiat' && ownCbrPrice ?
+    `1 USD = ${ownCbrPrice.toFixed(2)} ${selectedValue || ''}` :
+    currency === 'crypto' && ownBinancePrice ?
+      `1 ${selectedValue || ''} = ${ownBinancePrice.toFixed(4)} USD` :
+      'Выберите валюту';
+
 
   const currenciesWithKeys = dataArray.map(value => ({ ...value, id: value.name }));
 
@@ -127,16 +217,16 @@ const BlockBuy = ({
       </div>
       <div className="exchange-order__currency" style={{ margin: '20px 0' }}>
         <div className="exchange-order__crypto">
-          <motion.div
+          {currency && (<motion.div
             className={showCurrencies ? "exchange-order__list exchange-order__list_active" : "exchange-order__list"}
-            animate={{ height: showCurrencies ? "20rem" : 0, opacity: 1 }}
-            initial={{ opacity: 0 }}
+            animate={{ height: showCurrencies ? "auto" : 0, opacity: showCurrencies ? 1 : 0, overflow: 'hidden' }}
+            initial={{ opacity: 0, height: 0 }}
             transition={{
-              duration: 0.8,
+              duration: 0.5,
               ease: [0, 0.71, 0.2, 1.01],
             }}
           >
-            <h3>Select value</h3>
+            <h3>Выберите валюту</h3>
             <ul>
               {currenciesWithKeys.map(({ name, id }) => (
                 <motion.li
@@ -146,9 +236,8 @@ const BlockBuy = ({
                     backgroundColor: selectedValue === name ? "rgba(255,128,0,0.85)" : "rgba(255,128,0,0.35)",
                   }}
                   transition={{
-                    duration: 0.5,
+                    duration: 0.3,
                     ease: "easeInOut",
-                    backgroundColor: { when: "beforeChildren" }
                   }}
                   whileHover={{
                     backgroundColor: selectedValue === name ?
@@ -163,7 +252,7 @@ const BlockBuy = ({
                 </motion.li>
               ))}
             </ul>
-          </motion.div>
+          </motion.div>)}
           <TextField
             type="number"
             variant="standard"
@@ -173,6 +262,12 @@ const BlockBuy = ({
             label={placeholderText}
             autoComplete="off"
             value={amount}
+            disabled={!selectedValue}
+            InputProps={{
+              inputProps: {
+                min: 0
+              }
+            }}
             slotProps={{
               inputLabel: {
                 shrink: true,
@@ -180,24 +275,6 @@ const BlockBuy = ({
             }}
             sx={{ maxWidth: "150px", marginTop: "10px" }}
             onChange={handleInputChange} />
-
-          {/* <NumericFormat
-            className="exchange-order__amount"
-            customInput={TextField}
-            label={placeholderText}
-            thousandSeparator=" "
-            decimalSeparator="."
-
-            variant="standard"
-            slotProps={{
-              inputLabel: {
-                shrink: true,
-              }
-            }}
-            value={amount}
-            onChange={handleInputChange}
-            sx={{ maxWidth: "150px", marginTop: "10px" }}
-          /> */}
         </div>
       </div>
     </Grid>
@@ -214,4 +291,4 @@ BlockBuy.propTypes = {
   otherComponentCurrency: PropTypes.string
 };
 
-export default BlockBuy; 
+export default BlockBuy;

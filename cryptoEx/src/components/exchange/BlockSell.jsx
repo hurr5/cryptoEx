@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Grid2 as Grid, TextField } from "@mui/material";
-import { v4 as uuidv4 } from "uuid";
 import { useBinance } from "../../hooks/binance.hook";
 import { useCbr } from "../../hooks/cbr.hook";
 import PropTypes from 'prop-types';
 import { useSelector } from 'react-redux';
-import { NumericFormat } from "react-number-format";
 import './orderCurrency.sass';
 
 const BlockSell = ({
@@ -42,10 +40,42 @@ const BlockSell = ({
       }
       const data = await res.json();
       setDataArray(data);
+      if (data.length > 0) {
+        // Устанавливаем selectedValue только если он еще не установлен
+        // Или если выбранной валюты нет в новом списке
+        if (!selectedValue || !data.find(item => item.name === selectedValue)) {
+          const firstCurrencyName = data[0].name;
+          setSelectedValue(firstCurrencyName);
+        }
+      }
     } catch (err) {
       console.error(err);
     }
   }
+
+  useEffect(() => {
+    if (
+      typeof otherComponentAmount === 'number' &&
+      otherComponentAmount > 0 &&
+      selectedValue &&
+      currency &&
+      binancePrice !== null &&
+      cbrPrice !== null
+    ) {
+      let result = 0;
+
+      if (currency === 'fiat') {
+        const totalInUsd = otherComponentAmount * binancePrice;
+        result = totalInUsd * cbrPrice;
+      } else {
+        const totalInUsd = otherComponentAmount / cbrPrice;
+        result = totalInUsd / binancePrice;
+      }
+      setAmount(Number(result.toFixed(6)));
+    } else {
+      setAmount('');
+    }
+  }, [otherComponentAmount, selectedValue, currency, binancePrice, cbrPrice]);
 
   useEffect(() => {
     if (fetchURL) {
@@ -66,31 +96,43 @@ const BlockSell = ({
     }
   }, [linkedComponent, fetchURL, currency]);
 
-  const handleCryptoClick = (currency) => {
-    setSelectedValue(currency);
+  const handleCryptoClick = (currencyName) => {
+    setSelectedValue(currencyName);
+    if (onAmountChange) {
+      onAmountChange(Number(amount), currency, currencyName);
+    }
   };
 
   const handleInputChange = (e) => {
     const newAmount = parseFloat(e.target.value);
     setAmount(newAmount);
-    if (onAmountChange) {
-      onAmountChange(newAmount, currency, selectedValue);
+    if (typeof newAmount === 'number') {
+      onAmountChange(Number(newAmount), currency, selectedValue);
     }
   }
 
   useEffect(() => {
-    if (otherComponentAmount && selectedValue && binancePrice && cbrPrice) {
-      if (currency === 'crypto') {
-        const amountInUsd = otherComponentAmount / cbrPrice; // фиат → USD
-        const amountInCrypto = amountInUsd / binancePrice;   // USD → крипта
-        setAmount(amountInCrypto);
+    if (
+      typeof otherComponentAmount === 'number' &&
+      otherComponentCurrency &&
+      selectedValue &&
+      currency &&
+      binancePrice &&
+      cbrPrice
+    ) {
+      let result = 0;
+
+      if (currency === 'fiat') {
+        const usd = otherComponentAmount * binancePrice;
+        result = usd * cbrPrice;
       } else {
-        const amountInUsd = otherComponentAmount * binancePrice; // крипта → USD
-        const amountInFiat = amountInUsd * cbrPrice;             // USD → фиат
-        setAmount(amountInFiat);
+        const usd = otherComponentAmount / cbrPrice;
+        result = usd / binancePrice;
       }
+
+      setAmount(Number(result.toFixed(6)));
     }
-  }, [otherComponentAmount, selectedValue, binancePrice, cbrPrice, currency]);
+  }, [otherComponentAmount, selectedValue, currency, binancePrice, cbrPrice, otherComponentCurrency]);
 
   const handleCurrencyTypeChange = (type) => {
     setCurrency(type);
@@ -112,7 +154,6 @@ const BlockSell = ({
 
   return (
     <Grid className="exchange-order" size={{ xs: 12, lg: 5 }}>
-      {/* <img src="./currencies/BTC.svg" alt="btc" /> */}
       <h2>{title}</h2>
       <div className="exchange-order__select">
         <motion.button
@@ -139,7 +180,7 @@ const BlockSell = ({
           >
             <h3>Select value</h3>
             <ul>
-              {currenciesWithKeys.map(({ name, id, symbol }) => (
+              {currenciesWithKeys.map(({ name, id }) => (
                 <motion.li
                   key={id}
                   initial={false}

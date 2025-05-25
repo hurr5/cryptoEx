@@ -1,46 +1,54 @@
+// binance.hook.js
 import { useEffect, useState } from 'react';
 
-export function useBinance(symbol) {
+export function useBinance(symbol, quoteCurrency = 'USDT') {
   const [price, setPrice] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // const fetchUsdToRub = async () => {
-  //   const response = await fetch("https://www.cbr-xml-daily.ru/daily_json.js");
-  //   const data = await response.json();
-  //   return parseFloat(data.Valute.USD.Value);
-  // };
-
   useEffect(() => {
-    if (!symbol) return;
+    if (!symbol) {
+      setPrice(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    // Если базовая валюта совпадает с котируемой (например, USDT к USDT)
+    if (symbol.toUpperCase() === quoteCurrency.toUpperCase()) {
+      setPrice(1.0);
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
     const fetchPrice = async () => {
       setLoading(true);
       setError(null);
-
-      if (symbol.includes('USD')) {
-        setPrice(1.05);
-        setLoading(false);
-        return;
-      }
+      setPrice(null);
 
       try {
+        const pair = `${symbol.toUpperCase()}${quoteCurrency.toUpperCase()}`;
         const response = await fetch(
-          `https://api.binance.com/api/v3/ticker/price?symbol=${symbol}USDT`
+          `https://api.binance.com/api/v3/ticker/price?symbol=${pair}`
         );
-        if (!response.ok) throw new Error('Ошибка запроса');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`Ошибка запроса для ${pair}: ${response.status} ${errorData.msg || ''}`);
+        }
         const data = await response.json();
-        setPrice(+data.price);
+        setPrice(parseFloat(data.price));
       } catch (err) {
-        setError(err.message || 'Ошибка получения курса');
-        throw new Error()
+        console.error(`Binance hook error for ${symbol} to ${quoteCurrency}:`, err);
+        setError(err.message || 'Ошибка получения курса Binance');
+        setPrice(null);
       } finally {
         setLoading(false);
       }
     };
 
     fetchPrice();
-  }, [symbol]);
+  }, [symbol, quoteCurrency]);
 
   return { price, loading, error };
 }
