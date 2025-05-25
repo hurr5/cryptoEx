@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { motion } from "motion/react";
 import { Grid2 as Grid, TextField } from "@mui/material";
 import { useBinance } from "../../hooks/binance.hook";
@@ -16,12 +16,14 @@ const BlockBuy = ({
   otherComponentAmount,
   otherComponentCurrency
 }) => {
-  const selectedFiatCurrency = useSelector((state) => state.exchange.selectedFiatCurrency);
   const [selectedValue, setSelectedValue] = useState(null);
   const [dataArray, setDataArray] = useState([]);
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState(null);
-  const [showCurrencies, setShowCurrencies] = useState(null);
+  const [showCurrencies, setShowCurrencies] = useState(null); // This is likely for controlling the visibility of the currency list
+
+  const isUserTypingRef = useRef(false);
+  const calculationTimerRef = useRef(null);
 
   const { price: ownBinancePrice, loading: ownBinanceLoading, error: ownBinanceError } = useBinance(
     currency === 'crypto' ? selectedValue : null
@@ -38,7 +40,7 @@ const BlockBuy = ({
     otherCurrencyType === 'fiat' ? otherComponentCurrency : null
   );
 
-  const getCurrency = async (url, currencyTypeToFetch) => {
+  const getCurrency = useCallback(async (url, currencyTypeToFetch) => {
     try {
       const res = await fetch(`${url}/${currencyTypeToFetch}`, { method: "GET" });
       if (!res.ok) {
@@ -46,25 +48,27 @@ const BlockBuy = ({
       }
       const data = await res.json();
       setDataArray(data);
-      if (!selectedValue && data.length > 0) {
-        const firstCurrencyName = data[0].name;
-        setSelectedValue(firstCurrencyName);
-        if (onAmountChange) {
-          const currentAmount = parseFloat(amount) || 0;
-          onAmountChange(currentAmount, currency, firstCurrencyName);
-        }
-      }
+      // --- REMOVED THIS BLOCK ---
+      // if (!selectedValue && data.length > 0) {
+      //   const firstCurrencyName = data[0].name;
+      //   setSelectedValue(firstCurrencyName);
+      // }
+      // --- END REMOVED BLOCK ---
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []); // Removed selectedValue from dependency array, as we no longer check it here
 
   useEffect(() => {
     if (fetchURL) {
       const initialTypeToLoad = currency === 'fiat' ? 'fiatCurrencies' : (currency === 'crypto' ? 'cryptoCurrencies' : 'fiatCurrencies');
-      getCurrency(fetchURL, initialTypeToLoad);
+      // Only fetch currencies if a type is set.
+      // If currency is null initially, this won't fetch anything until a type is chosen.
+      if (currency) {
+        getCurrency(fetchURL, initialTypeToLoad);
+      }
     }
-  }, [fetchURL]);
+  }, [fetchURL, currency, getCurrency]);
 
   useEffect(() => {
     if (linkedComponent && fetchURL) {
@@ -72,91 +76,111 @@ const BlockBuy = ({
       if (currency !== ownExpectedType) {
         setCurrency(ownExpectedType);
         const endpoint = ownExpectedType === 'fiat' ? 'fiatCurrencies' : 'cryptoCurrencies';
-        setSelectedValue(null);
-        setDataArray([]);
+        setSelectedValue(null); // Ensure no currency is pre-selected when type changes
+        setDataArray([]); // Clear previous currency list
         getCurrency(fetchURL, endpoint);
         setShowCurrencies(true);
       }
     }
-  }, [linkedComponent, fetchURL]);
+  }, [linkedComponent, fetchURL, currency, getCurrency]);
+
 
   useEffect(() => {
-    if (selectedValue && currency && onAmountChange) {
+    if (onAmountChange) {
       const currentAmount = parseFloat(amount) || 0;
       onAmountChange(currentAmount, currency, selectedValue);
     }
-  }, [selectedValue]);
+  }, [amount, currency, selectedValue, onAmountChange]);
 
 
   const handleCryptoClick = (currencyName) => {
     setSelectedValue(currencyName);
-    if (onAmountChange) {
-      const currentAmount = parseFloat(amount) || 0;
-      onAmountChange(currentAmount, currency, currencyName);
-    }
   };
 
   const handleInputChange = (e) => {
     const newAmountStr = e.target.value;
     setAmount(newAmountStr);
-    const newAmountNum = parseFloat(newAmountStr);
-    if (onAmountChange && !isNaN(newAmountNum)) {
-      onAmountChange(newAmountNum, currency, selectedValue);
-    } else if (onAmountChange && newAmountStr === "") {
-      onAmountChange(0, currency, selectedValue);
+    isUserTypingRef.current = true;
+
+    if (calculationTimerRef.current) {
+      clearTimeout(calculationTimerRef.current);
     }
+    calculationTimerRef.current = setTimeout(() => {
+      isUserTypingRef.current = false;
+    }, 500);
   };
 
   useEffect(() => {
+    if (isUserTypingRef.current) {
+      return;
+    }
+
+    // Only perform calculations if all necessary values are present
     if (
       otherComponentAmount === null ||
       otherComponentCurrency === null ||
-      selectedValue === null ||
+      selectedValue === null || // This is key: only calculate if OUR currency is selected
       currency === null ||
-      linkedComponent === null
+      linkedComponent === null ||
+      isNaN(otherComponentAmount)
     ) {
-      setAmount('');
+      if (amount !== '') {
+        setAmount('');
+      }
       return;
     }
 
     if (Number(otherComponentAmount) === 0) {
-      setAmount('0');
+      if (amount !== '0') {
+        setAmount('0');
+      }
       return;
     }
-
 
     let amountInUSD;
 
     if (otherCurrencyType === 'crypto') {
-      if (otherBinancePrice === null || otherBinanceLoading) return;
-      if (otherBinanceError) { console.error("Error getting other binance price:", otherBinanceError); return; }
+      if (otherBinancePrice === null || otherBinanceLoading || otherBinanceError) {
+        if (otherBinanceError) console.error("Error getting other binance price:", otherBinanceError);
+        return;
+      }
       amountInUSD = Number(otherComponentAmount) * otherBinancePrice;
-    } else {
-      if (otherCbrPrice === null || otherCbrLoading) return;
-      if (otherCbrError) { console.error("Error getting other CBR price:", otherCbrError); return; }
+    } else { // otherCurrencyType === 'fiat'
+      if (otherCbrPrice === null || otherCbrLoading || otherCbrError) {
+        if (otherCbrError) console.error("Error getting other CBR price:", otherCbrError);
+        return;
+      }
       amountInUSD = Number(otherComponentAmount) / otherCbrPrice;
     }
 
     if (isNaN(amountInUSD)) {
-      setAmount('');
+      if (amount !== '') {
+        setAmount('');
+      }
       return;
     }
 
     let finalAmount;
     if (currency === 'crypto') {
-      if (ownBinancePrice === null || ownBinanceLoading) return;
-      if (ownBinanceError) { console.error("Error getting own binance price:", ownBinanceError); return; }
+      if (ownBinancePrice === null || ownBinanceLoading || ownBinanceError) {
+        if (ownBinanceError) console.error("Error getting own binance price:", ownBinanceError);
+        return;
+      }
       finalAmount = amountInUSD / ownBinancePrice;
-    } else {
-      if (ownCbrPrice === null || ownCbrLoading) return;
-      if (ownCbrError) { console.error("Error getting own CBR price:", ownCbrError); return; }
+    } else { // currency === 'fiat'
+      if (ownCbrPrice === null || ownCbrLoading || ownCbrError) {
+        if (ownCbrError) console.error("Error getting own CBR price:", ownCbrError);
+        return;
+      }
       finalAmount = amountInUSD * ownCbrPrice;
     }
 
     if (!isNaN(finalAmount)) {
       const roundedAmount = parseFloat(finalAmount.toFixed(currency === 'crypto' ? 8 : 2));
-      setAmount(String(roundedAmount));
-    } else {
+      if (Math.abs(parseFloat(amount) - roundedAmount) > 0.00000001) {
+        setAmount(String(roundedAmount));
+      }
+    } else if (amount !== '') {
       setAmount('');
     }
 
@@ -164,39 +188,40 @@ const BlockBuy = ({
     otherComponentAmount,
     otherComponentCurrency,
     otherCurrencyType,
-    selectedValue,
+    selectedValue, // Crucial for re-running when a currency is finally selected
     currency,
     ownBinancePrice,
     ownCbrPrice,
     otherBinancePrice,
     otherCbrPrice,
     ownBinanceLoading, ownCbrLoading, otherBinanceLoading, otherCbrLoading,
-    ownBinanceError, ownCbrError, otherBinanceError, otherCbrError
+    ownBinanceError, ownCbrError, otherBinanceError, otherCbrError,
+    amount
   ]);
 
   const handleCurrencyTypeChange = (type) => {
     if (currency === type) return;
 
-    setSelectedValue(null);
+    setSelectedValue(null); // Explicitly clear selected value
     setDataArray([]);
     setAmount('');
+    isUserTypingRef.current = false;
 
     setCurrency(type);
     const endpoint = type === 'fiat' ? 'fiatCurrencies' : 'cryptoCurrencies';
     getCurrency(fetchURL, endpoint);
-    setShowCurrencies(true);
+    setShowCurrencies(true); // Show the list after type is chosen
 
     if (onCurrencyTypeChange) {
       onCurrencyTypeChange(type);
     }
   };
 
-  const placeholderText = currency === 'fiat' && ownCbrPrice ?
-    `1 USD = ${ownCbrPrice.toFixed(2)} ${selectedValue || ''}` :
-    currency === 'crypto' && ownBinancePrice ?
-      `1 ${selectedValue || ''} = ${ownBinancePrice.toFixed(4)} USD` :
-      'Выберите валюту';
-
+  const placeholderText = selectedValue && currency === 'fiat' && ownCbrPrice ?
+    `1 USD = ${ownCbrPrice.toFixed(2)} ${selectedValue}` :
+    selectedValue && currency === 'crypto' && ownBinancePrice ?
+      `1 ${selectedValue} = ${ownBinancePrice.toFixed(4)} USD` :
+      'Выберите валюту'; // Default placeholder if no currency selected
 
   const currenciesWithKeys = dataArray.map(value => ({ ...value, id: value.name }));
 
@@ -217,6 +242,7 @@ const BlockBuy = ({
       </div>
       <div className="exchange-order__currency" style={{ margin: '20px 0' }}>
         <div className="exchange-order__crypto">
+          {/* Render currency list only if a type (fiat/crypto) is selected */}
           {currency && (<motion.div
             className={showCurrencies ? "exchange-order__list exchange-order__list_active" : "exchange-order__list"}
             animate={{ height: showCurrencies ? "auto" : 0, opacity: showCurrencies ? 1 : 0, overflow: 'hidden' }}
