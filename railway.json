@@ -1,7 +1,7 @@
 {
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate"
+    "buildCommand": "pip install -r requirements.txt && cd crypto_backend && python manage.py collectstatic --noinput && python manage.py migrate"
   },
   "start": "gunicorn crypto_backend.wsgi"
 }
