@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from main.views import OrderViewSet, PaymentDetailsViewSet, ReviewListCreateView
-
+from django.views.generic import TemplateView
 router = DefaultRouter()
 router.register(r'orders', OrderViewSet)
 router.register(r'payment-details', PaymentDetailsViewSet)
@@ -27,4 +27,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api/reviews/', ReviewListCreateView.as_view(), name='reviews'),
+    path('', TemplateView.as_view(template_name='index.html')),
+
 ]
