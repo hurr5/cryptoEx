@@ -288,7 +288,7 @@ export default function Exchange() {
                 color="success"
                 disableRipple
                 onClick={handleSubmitOrder}
-                sx={{ width: '100%' }}
+                sx={{ width: '100%', marginTop: '1rem' }}
                 disabled={isSubmitting || !agreedToTerms || !email || !walletAddress || firstAmount <= 0 || secondAmount <= 0 || !firstCurrency || !secondCurrency || !firstComponentType || !secondComponentType}
               >
                 {isSubmitting ? "Обработка..." : "Перейти к заказу"}

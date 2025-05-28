@@ -11,8 +11,8 @@ import "./reviews.sass";
 
 const Reviews = () => {
   const [reviews, setReviews] = useState([]);
-  const [open, setOpen] = useState(false); // Добавлено состояние для модального окна
-  const [form, setForm] = useState({ // Добавлено состояние для формы
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
     username: "",
     text: "",
     orderId: ""
@@ -60,39 +60,39 @@ const Reviews = () => {
   return (
     <Container>
       <div className="reviews">
-        <h2 className="reviews__title">What people say about us:</h2>
+        <h2 className="reviews__title">О нас говорят:</h2>
         <Button variant="contained" onClick={() => setOpen(true)} sx={{ display: "block", margin: "0 auto" }}>
-          Leave a Review
+          Оставить отзыв
         </Button>
         <Modal open={open} onClose={() => setOpen(false)}>
           <Box className="reviews__modal">
             <form className="reviews__form" onSubmit={handleSubmit}>
               <input
                 type="text"
-                placeholder="Your name"
+                placeholder="Ваше имя"
                 value={form.username}
                 onChange={(e) => setForm({ ...form, username: e.target.value })}
                 required
               />
               <input
                 type="text"
-                placeholder="Order ID (e.g. #123456)"
+                placeholder="ID вашего ордера"
                 value={form.orderId}
                 onChange={(e) => {
                   let value = e.target.value;
-                  if (!value.startsWith("#") && value.length > 0) value = "#" + value; // Исправлено условие
+                  if (!value.startsWith("#") && value.length > 0) value = "#" + value;
                   setForm({ ...form, orderId: value });
                 }}
                 required
               />
               <textarea
-                placeholder="Your review (max 200 chars)"
+                placeholder="Ваш отзыв (до 200 символов)"
                 value={form.text}
                 maxLength="200"
                 onChange={(e) => setForm({ ...form, text: e.target.value })}
                 required
               />
-              <button type="submit">Add Review</button>
+              <button type="submit">Отправить отзыв</button>
             </form>
           </Box>
         </Modal>

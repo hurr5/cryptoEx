@@ -1,0 +1,44 @@
+.footer
+  margin-top: 5rem
+
+  &__container
+    padding-bottom: 40px
+
+  &__grid
+    display: flex
+    flex-wrap: wrap
+    gap: 2rem
+
+  &__logo
+    text-align: center
+
+  &__logo-icon
+    width: 64px
+    height: 64px
+
+  &__section
+    text-align: left
+
+  &__heading
+    font-size: 1.5rem
+    font-weight: bold
+    margin-bottom: 1rem
+
+  &__links
+    display: flex
+    flex-direction: column
+    gap: 15px
+    margin-top: 15px
+
+// Медиазапрос для вертикального расположения
+@media (max-width: 768px)
+  .footer__grid
+    flex-direction: column
+    align-items: center
+
+  .footer__section
+    margin-top: 2rem
+    text-align: center
+
+  .footer__logo-icon
+    margin-bottom: 1rem

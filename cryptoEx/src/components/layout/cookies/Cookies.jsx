@@ -24,12 +24,12 @@ const Cookies = () => {
   return (
     <div className={`cookies ${showCookies ? 'cookies__active' : ''}`}>
       <div className="cookies__content">
-        <h2 className="cookies__title">Cookies Policy</h2>
+        <h2 className="cookies__title">Политика Cookies</h2>
         <p className="cookies__text">
-          This website uses cookies to ensure you get the best experience on our website. By using our website, you agree to our use of cookies.
+          Наш сайт использует файлы cookie для обеспечения наилучшего взаимодействия с пользователем. Используя наш сайт, вы соглашаетесь с использованием файлов cookie.
         </p>
-        <button className="cookies__button" onClick={onCookiesSubmit}>Accept</button>
-        <button className="cookies__button cookies__button--decline" onClick={onCookiesDecline}>Decline</button>
+        <button className="cookies__button" onClick={onCookiesSubmit}>Принять</button>
+        <button className="cookies__button cookies__button--decline" onClick={onCookiesDecline}>Отклонить</button>
       </div>
     </div>
   )
