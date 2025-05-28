@@ -98,10 +98,10 @@ WSGI_APPLICATION = 'crypto_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'postgres'),
+        'NAME': os.getenv('DB_NAME', 'railway'),
         'USER': os.getenv('DB_USER', 'postgres'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
+        'PASSWORD': os.getenv('DB_PASSWORD', 'DJEiecJKsfsZZIFuWfDOPjHfjubEBjOu'),
+        'HOST': os.getenv('DB_HOST', 'postgres.railway.internal'),
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
